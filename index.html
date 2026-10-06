@@ -453,6 +453,11 @@
             .header-phones {
     gap: 0;
 }
+            .carousel-track {
+    touch-action: pan-y;  /* Разрешаем вертикальный скролл, блокируем горизонтальный */
+    user-select: none;     /* Запрещаем выделение текста при свайпе */
+    -webkit-user-select: none;
+}
 /* Планшет: 2 карточки */
 @media (max-width: 1024px) and (min-width: 769px) {
     .portfolio-card {
@@ -923,116 +928,116 @@
 
     // === КАРУСЕЛЬ ПОРТФОЛИО ===
     (function() {
-        const track = document.getElementById('carouselTrack');
-        const dotsContainer = document.getElementById('carouselDots');
-        
-        if (!track || !dotsContainer) return;
-        
-        const cards = track.querySelectorAll('.portfolio-card');
-        const totalCards = cards.length;
-        let currentIndex = 0;
-        let cardsPerView = 3;
-        
-        // Определяем количество карточек на экране
-        function updateCardsPerView() {
-            if (window.innerWidth <= 768) {
-                cardsPerView = 1;
-            } else if (window.innerWidth <= 1024) {
-                cardsPerView = 2;
-            } else {
-                cardsPerView = 3;
-            }
+    const track = document.getElementById('carouselTrack');
+    const dotsContainer = document.getElementById('carouselDots');
+    if (!track || !dotsContainer) return;
+    
+    const cards = track.querySelectorAll('.portfolio-card');
+    const totalCards = cards.length;
+    let currentIndex = 0;
+    let cardsPerView = 3;
+    
+    // Получаем реальный gap из CSS (важно для мобильных!)
+    function getRealGap() {
+        const style = window.getComputedStyle(track);
+        const gapValue = style.gap || style.columnGap || '30px';
+        return parseFloat(gapValue) || 30;
+    }
+    
+    function updateCardsPerView() {
+        if (window.innerWidth <= 768) cardsPerView = 1;
+        else if (window.innerWidth <= 1024) cardsPerView = 2;
+        else cardsPerView = 3;
+    }
+    
+    function createDots() {
+        dotsContainer.innerHTML = '';
+        const totalDots = Math.ceil(totalCards / cardsPerView);
+        for (let i = 0; i < totalDots; i++) {
+            const dot = document.createElement('button');
+            dot.className = 'carousel-dot';
+            if (i === 0) dot.classList.add('active');
+            dot.addEventListener('click', () => goToSlide(i));
+            dotsContainer.appendChild(dot);
         }
+    }
+    
+    function updateCarousel() {
+        if (cards.length === 0) return;
+        const cardWidth = cards[0].offsetWidth;
+        const gap = getRealGap();  // ← Используем реальный gap из CSS!
+        const offset = currentIndex * (cardWidth + gap);
+        track.style.transform = `translateX(-${offset}px)`;
         
-        // Создаём точки-индикаторы
-        function createDots() {
-            dotsContainer.innerHTML = '';
-            const totalDots = Math.ceil(totalCards / cardsPerView);
-            
-            for (let i = 0; i < totalDots; i++) {
-                const dot = document.createElement('button');
-                dot.className = 'carousel-dot';
-                if (i === 0) dot.classList.add('active');
-                dot.addEventListener('click', () => goToSlide(i));
-                dotsContainer.appendChild(dot);
-            }
-        }
-        
-        // Обновляем позицию карусели
-        function updateCarousel() {
-            const cardWidth = cards[0].offsetWidth;
-            const gap = 30;
-            const offset = currentIndex * (cardWidth + gap);
-            track.style.transform = `translateX(-${offset}px)`;
-            
-            // Обновляем активную точку
-            const dots = dotsContainer.querySelectorAll('.carousel-dot');
-            const activeDotIndex = Math.floor(currentIndex / cardsPerView);
-            dots.forEach((dot, index) => {
-                dot.classList.toggle('active', index === activeDotIndex);
-            });
-        }
-        
-        // Переход к слайду
-        function goToSlide(slideIndex) {
-            const maxIndex = totalCards - cardsPerView;
-            currentIndex = Math.min(slideIndex * cardsPerView, maxIndex);
-            currentIndex = Math.max(0, currentIndex);
-            updateCarousel();
-        }
-        
-        // Движение карусели
-        window.moveCarousel = function(direction) {
-            const maxIndex = totalCards - cardsPerView;
-            currentIndex += direction;
-            currentIndex = Math.max(0, Math.min(currentIndex, maxIndex));
-            updateCarousel();
-        };
-        
-        // Инициализация
-        updateCardsPerView();
-        createDots();
-        
-        // Обновление при изменении размера окна
-        let resizeTimer;
-        window.addEventListener('resize', () => {
-            clearTimeout(resizeTimer);
-            resizeTimer = setTimeout(() => {
-                updateCardsPerView();
+        const dots = dotsContainer.querySelectorAll('.carousel-dot');
+        const activeDotIndex = Math.floor(currentIndex / cardsPerView);
+        dots.forEach((dot, index) => {
+            dot.classList.toggle('active', index === activeDotIndex);
+        });
+    }
+    
+    function goToSlide(slideIndex) {
+        const maxIndex = Math.max(0, totalCards - cardsPerView);
+        currentIndex = Math.min(slideIndex * cardsPerView, maxIndex);
+        currentIndex = Math.max(0, currentIndex);
+        updateCarousel();
+    }
+    
+    window.moveCarousel = function(direction) {
+        const maxIndex = Math.max(0, totalCards - cardsPerView);
+        currentIndex += direction;
+        currentIndex = Math.max(0, Math.min(currentIndex, maxIndex));
+        updateCarousel();
+    };
+    
+    updateCardsPerView();
+    createDots();
+    
+    // Обновление при ресайзе окна
+    let resizeTimer;
+    window.addEventListener('resize', () => {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(() => {
+            const oldCardsPerView = cardsPerView;
+            updateCardsPerView();
+            if (oldCardsPerView !== cardsPerView) {
                 createDots();
                 currentIndex = 0;
-                updateCarousel();
-            }, 250);
-        });
-        
-        // Автопрокрутка (опционально)
-        let autoPlayInterval = setInterval(() => {
-            const maxIndex = totalCards - cardsPerView;
-            if (currentIndex >= maxIndex) {
-                currentIndex = 0;
-            } else {
-                currentIndex++;
             }
             updateCarousel();
-        }, 5000);
+        }, 250);
+    });
+    
+    // === ПОДДЕРЖКА СВАЙПОВ НА МОБИЛЬНЫХ ===
+    let touchStartX = 0;
+    let touchEndX = 0;
+    let isDragging = false;
+    
+    track.addEventListener('touchstart', (e) => {
+        touchStartX = e.changedTouches[0].screenX;
+        isDragging = true;
+    }, { passive: true });
+    
+    track.addEventListener('touchmove', (e) => {
+        if (!isDragging) return;
+        touchEndX = e.changedTouches[0].screenX;
+    }, { passive: true });
+    
+    track.addEventListener('touchend', () => {
+        if (!isDragging) return;
+        isDragging = false;
+        const swipeDistance = touchStartX - touchEndX;
+        const minSwipe = 50; // Минимальная длина свайпа в пикселях
         
-        // Останавливаем автопрокрутку при наведении
-        track.addEventListener('mouseenter', () => {
-            clearInterval(autoPlayInterval);
-        });
-        
-        track.addEventListener('mouseleave', () => {
-            autoPlayInterval = setInterval(() => {
-                const maxIndex = totalCards - cardsPerView;
-                if (currentIndex >= maxIndex) {
-                    currentIndex = 0;
-                } else {
-                    currentIndex++;
-                }
-                updateCarousel();
-            }, 5000);
-        });
-    })();
+        if (Math.abs(swipeDistance) > minSwipe) {
+            if (swipeDistance > 0) {
+                moveCarousel(1);  // Свайп влево → следующая карточка
+            } else {
+                moveCarousel(-1); // Свайп вправо → предыдущая карточка
+            }
+        }
+    });
+})();
 </script>
 </body>
 </html>
